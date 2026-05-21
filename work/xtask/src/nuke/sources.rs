@@ -258,10 +258,6 @@ fn fallback_target_info(
             "16.0v2",
             "https://thefoundry.s3.amazonaws.com/products/nuke/releases/16.0v2/Nuke16.0v2-win-x86_64.zip",
         )),
-        (TargetPlatform::Windows, "17.0") => Some((
-            "17.0v1",
-            "https://thefoundry.s3.amazonaws.com/products/nuke/releases/17.0v1/Nuke17.0v1-win-x86_64.zip",
-        )),
 
         (TargetPlatform::Linux, "13.0") => Some((
             "13.0v10",
@@ -298,10 +294,6 @@ fn fallback_target_info(
         (TargetPlatform::Linux, "16.0") => Some((
             "16.0v2",
             "https://thefoundry.s3.amazonaws.com/products/nuke/releases/16.0v2/Nuke16.0v2-linux-x86_64.tgz",
-        )),
-        (TargetPlatform::Linux, "17.0") => Some((
-            "17.0v1",
-            "https://thefoundry.s3.amazonaws.com/products/nuke/releases/17.0v1/Nuke17.0v1-linux-x86_64.tgz",
         )),
         _ => None,
     }
