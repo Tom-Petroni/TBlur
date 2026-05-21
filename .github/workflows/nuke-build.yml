@@ -66,6 +66,7 @@ jobs:
     steps:
       - name: Generate build matrix
         id: generate
+        working-directory: .
         env:
           EVENT_NAME: ${{ github.event_name }}
           INPUT_NUKE_VERSIONS: ${{ github.event.inputs.nuke_versions }}
@@ -245,6 +246,7 @@ jobs:
           path: dist
 
       - name: Assemble package
+        working-directory: .
         run: |
           mkdir -p package
           for artifact in dist/*; do
@@ -254,6 +256,7 @@ jobs:
 
       - name: Create zip
         id: zip
+        working-directory: .
         run: |
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             ZIP_NAME="TBlur-${GITHUB_REF_NAME}.zip"
