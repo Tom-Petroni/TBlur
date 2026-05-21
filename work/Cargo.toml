@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "crates/tblur-nuke",
+    "xtask",
+]
+resolver = "2"

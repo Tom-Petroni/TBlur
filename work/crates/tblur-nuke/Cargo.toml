@@ -1,0 +1,19 @@
+[package]
+name = "tblur-nuke"
+version = "0.1.0"
+edition = "2024"
+links = "DDImage"
+publish = false
+
+[lib]
+name = "tblur_nuke"
+crate-type = ["cdylib"]
+
+[features]
+default = []
+cuda_backend = []
+
+[dependencies]
+
+[build-dependencies]
+cc = "1.2"

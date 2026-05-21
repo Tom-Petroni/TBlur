@@ -1,0 +1,21 @@
+# Build outputs
+/work/target/
+/.artifact-stage/
+/dist/
+
+# Runtime artifacts
+**/__pycache__/
+*.pyc
+*.pyo
+
+# Plugin binaries produced locally
+**/*.dll
+**/*.so
+**/*.dylib
+**/*.pdb
+**/*.exp
+**/*.lib
+
+# Local temp/debug files
+*.log
+*.tmp

@@ -1,0 +1,21 @@
+# Rust build artifacts
+/target/
+
+# Python cache artifacts
+__pycache__/
+*.pyc
+*.pyo
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+
+# Plugin binaries are build outputs; keep only placeholder
+/tedgeaware_plugins/tedgeaware_plugin/bin/*
+!/tedgeaware_plugins/tedgeaware_plugin/bin/.gitkeep
+
+# Local debug/build logs
+build_err.txt
+
+# Docker extraction output
+/output_linux/

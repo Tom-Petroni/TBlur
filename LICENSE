@@ -1,0 +1,60 @@
+﻿TSuite Commercial Source-Available License (CSAL) v1.0
+Copyright (c) 2026 Thomas Petroni. All rights reserved.
+
+IMPORTANT
+This repository is publicly visible for transparency, documentation, and evaluation.
+It is NOT open-source software.
+
+1. Definitions
+- "Software" means all source code, binaries, scripts, assets, and documentation in this repository.
+- "Licensor" means the copyright owner of TSuite.
+- "Customer" means any party with a valid commercial agreement from the Licensor.
+
+2. Default Rights (Public Repository Access)
+Subject to this license, you may:
+- view and clone the repository,
+- evaluate the Software internally,
+- build the Software for internal evaluation.
+
+You may NOT, without a separate written commercial agreement:
+- use the Software in production,
+- distribute the Software or derivative works,
+- sublicense, resell, rent, lease, or provide the Software as a service,
+- remove or alter copyright, trademark, or proprietary notices.
+
+3. Commercial Use
+Any production, studio, client, or revenue-generating use requires a valid commercial
+license agreement with the Licensor.
+
+4. Derivative Works
+Creating internal derivative works for evaluation is allowed.
+Distribution, publication, or commercial exploitation of derivative works is prohibited
+without written permission.
+
+5. Ownership
+All rights, title, and interest in and to the Software remain with the Licensor.
+No rights are granted except those expressly set forth in this license.
+
+6. Third-Party Components
+The Software may include or depend on third-party components governed by separate licenses.
+See docs/THIRD_PARTY_NOTICES.md.
+
+7. Disclaimer of Warranty
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND
+NON-INFRINGEMENT.
+
+8. Limitation of Liability
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE LICENSOR SHALL NOT BE LIABLE FOR ANY INDIRECT,
+INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES, OR ANY LOSS OF DATA, PROFITS,
+REVENUE, OR BUSINESS INTERRUPTION, ARISING OUT OF OR RELATED TO THE SOFTWARE.
+
+9. Termination
+Any use in breach of this license terminates your rights immediately.
+Upon termination, you must stop using the Software and destroy all copies in your control,
+except where retention is required by law.
+
+10. Governing Terms
+Any commercial usage terms in a signed contract supersede this license for the contracted scope.
+
+Contact: licensing@tsuite.tools

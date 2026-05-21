@@ -1,0 +1,12 @@
+{
+  "key": "TBlur",
+  "label": "TBlur",
+  "version": "1.0.0",
+  "status": "stable",
+  "class_name": "TBlur",
+  "bootstrap_module": "tblur_plugin.init",
+  "python_path": "publish",
+  "work_path": "work",
+  "publish_path": "publish",
+  "notes": "Source from TBlur2.0"
+}
