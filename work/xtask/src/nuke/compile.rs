@@ -135,6 +135,15 @@ fn get_rust_target(target: TargetPlatform) -> String {
     .to_string()
 }
 
+fn packaged_binary_name(target: TargetPlatform) -> String {
+    match target {
+        TargetPlatform::Windows => "TBlur.dll",
+        TargetPlatform::Linux => "libTBlur.so",
+        TargetPlatform::MacosAarch64 | TargetPlatform::MacosX86_64 => "libTBlur.dylib",
+    }
+    .to_string()
+}
+
 fn collect_features(cuda_backend: bool) -> Vec<String> {
     let mut features = Vec::new();
     if cuda_backend {
@@ -207,7 +216,7 @@ async fn compile_native(
         tokio::fs::create_dir_all(&out_dir).await?;
     }
 
-    let output_dylib = out_dir.join(format!("TBlur.{}", dll_suffix(target)));
+    let output_dylib = out_dir.join(packaged_binary_name(target));
     let build_lib = path_to_string(
         &target_directory()
             .join(get_rust_target(target))
@@ -280,7 +289,7 @@ async fn compile_zig(
         tokio::fs::create_dir_all(&out_dir).await?;
     }
 
-    let output_dylib = out_dir.join(format!("TBlur.{}", dll_suffix(target)));
+    let output_dylib = out_dir.join(packaged_binary_name(target));
     let build_lib = path_to_string(
         &target_directory()
             .join(get_rust_target(target))

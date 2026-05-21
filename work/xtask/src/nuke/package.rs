@@ -1,12 +1,16 @@
 use crate::{
     TargetPlatform,
-    nuke::sources::dll_suffix,
     util::{crate_root, target_directory},
 };
 use anyhow::Result;
 
 pub async fn create_package(target: TargetPlatform, versions: Vec<String>) -> Result<()> {
     let target_path = crate_root().join("tblur_plugins");
+    let filename = match target {
+        TargetPlatform::Windows => "TBlur.dll",
+        TargetPlatform::Linux => "libTBlur.so",
+        TargetPlatform::MacosAarch64 | TargetPlatform::MacosX86_64 => "libTBlur.dylib",
+    };
 
     for version in &versions {
         let (os_name, arch_name) = match target {
@@ -24,7 +28,6 @@ pub async fn create_package(target: TargetPlatform, versions: Vec<String>) -> Re
             .join(arch_name);
         tokio::fs::create_dir_all(&target_binary_path).await?;
 
-        let filename = format!("TBlur.{}", dll_suffix(target));
         let source_binary_path = target_directory()
             .join("nuke")
             .join("builds")

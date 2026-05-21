@@ -1,0 +1,282 @@
+﻿name: Nuke Plugin Build (CUDA)
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      nuke_versions:
+        description: "Comma-separated Nuke minor versions (example: 15.1,16.0,17.0)"
+        required: false
+        default: "13.0,13.1,13.2,14.0,14.1,15.0,15.1,15.2,16.0,17.0"
+      cuda_backend:
+        description: "Build CUDA backend binaries"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: work
+
+concurrency:
+  group: ${{ (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')) && format('build-{0}-{1}', github.workflow, github.ref) || format('smoke-{0}-{1}', github.workflow, github.ref) }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Smoke Checks on ${{ matrix.runner }}
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/'))
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - ubuntu-latest
+          - windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Python syntax check
+        run: python -m compileall tblur_plugins
+
+      - name: Check xtask
+        run: cargo check -p xtask
+
+  matrix:
+    name: Prepare Release Matrix
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.generate.outputs.matrix }}
+    steps:
+      - name: Generate build matrix
+        id: generate
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_NUKE_VERSIONS: ${{ github.event.inputs.nuke_versions }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+
+          default_versions = ["13.0", "13.1", "13.2", "14.0", "14.1", "15.0", "15.1", "15.2", "16.0", "17.0"]
+
+          def parse_versions(raw: str):
+              if not raw:
+                  return []
+              return [v.strip() for v in raw.split(",") if v.strip()]
+
+          event_name = os.getenv("EVENT_NAME", "")
+          if event_name == "workflow_dispatch":
+              versions = parse_versions(os.getenv("INPUT_NUKE_VERSIONS", "")) or default_versions
+          else:
+              versions = default_versions
+
+          targets = [
+              {
+                  "runner": "ubuntu-latest",
+                  "target_platform": "linux",
+                  "os_name": "linux",
+                  "arch_name": "x86_64",
+                  "lib_ext": "so",
+                  "lib_prefix": "lib",
+              },
+              {
+                  "runner": "windows-latest",
+                  "target_platform": "windows",
+                  "os_name": "windows",
+                  "arch_name": "x86_64",
+                  "lib_ext": "dll",
+                  "lib_prefix": "",
+              },
+          ]
+
+          include = []
+          for version in versions:
+              for target in targets:
+                  row = dict(target)
+                  row["nuke_version"] = version
+                  include.append(row)
+
+          matrix = {"include": include}
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+              handle.write(f"matrix={json.dumps(matrix)}\\n")
+
+          print(json.dumps(matrix))
+          PY
+
+  build:
+    name: Build Nuke ${{ matrix.nuke_version }} on ${{ matrix.target_platform }}
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+    needs: matrix
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.matrix.outputs.matrix) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Set up MSVC environment
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full
+
+      - name: Install Windows dependencies
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          choco install 7zip lessmsi -y
+
+      - name: Install CUDA toolkit
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.cuda_backend == 'true'
+        uses: Jimver/cuda-toolkit@v0.2.35
+        with:
+          cuda: '12.4.1'
+
+      - name: Build and package plugin
+        env:
+          RUST_BACKTRACE: "1"
+          NUKE_VERSION: ${{ matrix.nuke_version }}
+          TARGET_PLATFORM: ${{ matrix.target_platform }}
+          USE_CUDA: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.cuda_backend == 'true' }}
+        run: |
+          python - <<'PY'
+          import os
+          import subprocess
+
+          cmd = [
+              "cargo",
+              "xtask",
+              "--compile",
+              "--nuke-versions",
+              os.environ["NUKE_VERSION"],
+              "--target-platform",
+              os.environ["TARGET_PLATFORM"],
+              "--output-to-package",
+              "--limit-threads",
+          ]
+
+          if os.environ.get("USE_CUDA", "true").lower() == "true":
+              cmd.append("--cuda-backend")
+
+          print("Running:", " ".join(cmd))
+          subprocess.check_call(cmd)
+          PY
+
+      - name: Verify expected binary exists
+        shell: bash
+        env:
+          NUKE_VERSION: ${{ matrix.nuke_version }}
+          OS_NAME: ${{ matrix.os_name }}
+          ARCH_NAME: ${{ matrix.arch_name }}
+          LIB_EXT: ${{ matrix.lib_ext }}
+          LIB_PREFIX: ${{ matrix.lib_prefix }}
+        run: |
+          python - <<'PY'
+          import os
+          import pathlib
+          import sys
+
+          expected = (
+              pathlib.Path("tblur_plugins")
+              / "tblur_plugin"
+              / "bin"
+              / os.environ["NUKE_VERSION"]
+              / os.environ["OS_NAME"]
+              / os.environ["ARCH_NAME"]
+              / f"{os.environ['LIB_PREFIX']}TBlur.{os.environ['LIB_EXT']}"
+          )
+          if not expected.is_file():
+              print(f"Missing expected output: {expected}")
+              sys.exit(1)
+          print(f"Found: {expected}")
+          PY
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tblur-${{ matrix.nuke_version }}-${{ matrix.target_platform }}
+          if-no-files-found: error
+          path: |
+            work/README.md
+            work/tblur_plugins/init.py
+            work/tblur_plugins/tblur_plugin/*.py
+            work/tblur_plugins/tblur_plugin/resources/*
+            work/tblur_plugins/tblur_plugin/bin/${{ matrix.nuke_version }}/${{ matrix.os_name }}/${{ matrix.arch_name }}/${{ matrix.lib_prefix }}TBlur.${{ matrix.lib_ext }}
+
+  bundle:
+    name: Bundle Multi-Platform Package
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Assemble package
+        run: |
+          mkdir -p package
+          for artifact in dist/*; do
+            rsync -a "$artifact/" package/
+          done
+          find package -type d -name "__pycache__" -prune -exec rm -rf {} +
+
+      - name: Create zip
+        id: zip
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            ZIP_NAME="TBlur-${GITHUB_REF_NAME}.zip"
+          else
+            ZIP_NAME="TBlur-${GITHUB_SHA}.zip"
+          fi
+          cd package
+          zip -r "../${ZIP_NAME}" .
+          echo "zip_name=${ZIP_NAME}" >> "${GITHUB_OUTPUT}"
+
+      - name: Upload bundled artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.zip.outputs.zip_name }}
+          if-no-files-found: error
+          path: ${{ steps.zip.outputs.zip_name }}
+
+      - name: Publish GitHub release asset
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: TBlur ${{ github.ref_name }}
+          files: ${{ steps.zip.outputs.zip_name }}
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          token: ${{ secrets.GITHUB_TOKEN }}
