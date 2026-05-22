@@ -16,6 +16,14 @@
 **/*.exp
 **/*.lib
 
+# Keep published binaries versioned for end users (clone + drag-and-drop install)
+!publish/**/bin/**/*.dll
+!publish/**/bin/**/*.so
+!publish/**/bin/**/*.dylib
+!publish/**/bin/**/*.pdb
+!publish/**/bin/**/*.exp
+!publish/**/bin/**/*.lib
+
 # Local temp/debug files
 *.log
 *.tmp

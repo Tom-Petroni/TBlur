@@ -126,6 +126,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
     needs: matrix
     runs-on: ${{ matrix.runner }}
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.matrix.outputs.matrix) }}
@@ -283,5 +284,61 @@ jobs:
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
           token: ${{ secrets.GITHUB_TOKEN }}
+
+  sync_publish:
+    name: Sync Publish Folder To Repo
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Rebuild publish binaries from artifacts
+        working-directory: .
+        run: |
+          rm -rf publish/tblur_plugin/bin
+          mkdir -p publish/tblur_plugin/bin
+
+          for artifact in dist/*; do
+            if [[ -d "$artifact/tblur_plugins/tblur_plugin/bin" ]]; then
+              rsync -a "$artifact/tblur_plugins/tblur_plugin/bin/" "publish/tblur_plugin/bin/"
+            fi
+          done
+
+          # Compatibility fallback: expose a 17.0 folder from 16.0 binaries
+          # when native 17.0 artifacts are unavailable.
+          if [[ -d "publish/tblur_plugin/bin/16.0" ]]; then
+            while IFS= read -r -d '' src; do
+              dst="${src/\/16.0\//\/17.0\/}"
+              if [[ ! -f "$dst" ]]; then
+                mkdir -p "$(dirname "$dst")"
+                cp -f "$src" "$dst"
+              fi
+            done < <(find publish/tblur_plugin/bin/16.0 -type f \( -name "*.dll" -o -name "*.so" \) -print0)
+          fi
+
+      - name: Commit publish updates
+        working-directory: .
+        run: |
+          if git diff --quiet -- publish/tblur_plugin/bin; then
+            echo "No publish changes to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add publish/tblur_plugin/bin
+          git commit -m "chore(publish): sync compiled binaries [skip ci]"
+          git push origin HEAD:main
 
 

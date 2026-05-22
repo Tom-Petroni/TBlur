@@ -47,17 +47,20 @@ Le repo contient un workflow GitHub Actions (`.github/workflows/nuke-build.yml`)
 - build Windows + Linux (pas de build macOS pour la variante CUDA)
 - genere un zip de release pret a copier dans `.nuke`
 
-## Installer dans Nuke
+## Installer dans Nuke (utilisateur final)
 
-1. Copier `publish/tblur_plugin` vers `C:/Users/<user>/.nuke/tblur_plugin`
-2. Dans `C:/Users/<user>/.nuke/init.py`, ajouter:
+1. Cloner le repo
+2. Glisser `publish/tblur_plugin` dans `C:/Users/<user>/.nuke/`
+3. Redemarrer Nuke
+
+Les binaires (`.dll`, `.so`) sont versionnes dans `publish/tblur_plugin/bin/...`.
+
+Si ton setup Nuke ne charge pas automatiquement le dossier, ajoute en fallback dans `.nuke/init.py`:
 
 ```python
 import nuke
 nuke.pluginAddPath(r"C:/Users/<user>/.nuke/tblur_plugin")
 ```
-
-3. Redemarrer Nuke
 
 ## Verification rapide
 
