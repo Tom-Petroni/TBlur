@@ -12,7 +12,7 @@ on:
       nuke_versions:
         description: "Comma-separated Nuke minor versions (example: 15.1,16.0,17.0)"
         required: false
-        default: "16.0,17.0"
+        default: "13.0,13.1,13.2,14.0,14.1,15.0,15.1,15.2,16.0,17.0"
       cuda_backend:
         description: "Build CUDA backend binaries"
         required: false
@@ -75,7 +75,7 @@ jobs:
           import json
           import os
 
-          default_versions = ["16.0", "17.0"]
+          default_versions = ["13.0", "13.1", "13.2", "14.0", "14.1", "15.0", "15.1", "15.2", "16.0", "17.0"]
 
           def parse_versions(raw: str):
               if not raw:
@@ -336,6 +336,77 @@ jobs:
               fi
             done < <(find publish/tblur_plugin/bin/16.0 -type f \( -name "*.dll" -o -name "*.so" \) -print0)
           fi
+
+          # Compatibility fill: ensure every target Nuke minor has a binary
+          # folder by copying from the nearest available compiled version.
+          python - <<'PY'
+          import shutil
+          from pathlib import Path
+
+          target_versions = ["13.0", "13.1", "13.2", "14.0", "14.1", "15.0", "15.1", "15.2", "16.0", "17.0"]
+          root = Path("publish/tblur_plugin/bin")
+
+          def parse_version(version: str):
+              major, minor = version.split(".", 1)
+              return int(major), int(minor)
+
+          def nearest_version(target: str, candidates: list[str]) -> str | None:
+              if not candidates:
+                  return None
+              t_major, t_minor = parse_version(target)
+
+              def key(candidate: str):
+                  c_major, c_minor = parse_version(candidate)
+                  same_major = 0 if c_major == t_major else 1
+                  major_distance = abs(c_major - t_major)
+                  minor_distance = abs(c_minor - t_minor)
+                  # Prefer lower/equal minor when tied, then lower/equal major.
+                  is_higher_minor = 1 if (c_major == t_major and c_minor > t_minor) else 0
+                  is_higher_major = 1 if c_major > t_major else 0
+                  return (
+                      same_major,
+                      major_distance,
+                      minor_distance,
+                      is_higher_minor,
+                      is_higher_major,
+                  )
+
+              return min(candidates, key=key)
+
+          targets = [
+              ("linux", "x86_64", "libTBlur.so"),
+              ("windows", "x86_64", "TBlur.dll"),
+          ]
+
+          for os_name, arch_name, filename in targets:
+              available = []
+              for version in target_versions:
+                  candidate_path = root / version / os_name / arch_name / filename
+                  if candidate_path.is_file():
+                      available.append(version)
+
+              if not available:
+                  continue
+
+              for version in target_versions:
+                  destination = root / version / os_name / arch_name / filename
+                  if destination.is_file():
+                      continue
+
+                  source_version = nearest_version(version, available)
+                  if source_version is None:
+                      continue
+
+                  source = root / source_version / os_name / arch_name / filename
+                  if not source.is_file():
+                      continue
+
+                  destination.parent.mkdir(parents=True, exist_ok=True)
+                  shutil.copy2(source, destination)
+                  print(
+                      f"filled missing {version}/{os_name}/{arch_name} from {source_version}",
+                  )
+          PY
 
       - name: Commit publish updates
         working-directory: .

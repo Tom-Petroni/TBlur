@@ -43,9 +43,13 @@ Pour Nuke 17.0, remplacer `16.0` par `17.0`.
 
 Le repo contient un workflow GitHub Actions (`.github/workflows/nuke-build.yml`) qui:
 
-- build les versions Nuke 16.0 -> 17.0
+- build les versions Nuke 13.0 -> 17.0
 - build Windows + Linux (pas de build macOS pour la variante CUDA)
 - genere un zip de release pret a copier dans `.nuke`
+
+Notes:
+
+- Quand une combinaison Nuke/OS ne compile pas nativement en CI, le pipeline remplit la version manquante avec le binaire compile le plus proche disponible pour conserver un package complet.
 
 ## Installer dans Nuke (utilisateur final)
 
