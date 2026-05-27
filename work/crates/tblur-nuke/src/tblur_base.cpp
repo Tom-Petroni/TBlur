@@ -756,7 +756,7 @@ class TBlurBase : public Iop {
     Input_ChannelSet_knob(f, &channels_, 0, "channels", "channels");
     Tooltip(f, "Channels processed by TBlur.");
 
-    BeginOpenGroup(f, "tblur_blur_group", "Blur");
+    BeginGroup(f, "tblur_blur_group", "Blur");
 
     Knob* blur_size_knob = Double_knob(f, &blur_size_, "blur_size", "Size");
     SetRange(f, 0.0, 500.0);
@@ -794,7 +794,7 @@ class TBlurBase : public Iop {
 
     EndGroup(f);
 
-    BeginOpenGroup(f, "tblur_guide_group", "Guide");
+    BeginGroup(f, "tblur_guide_group", "Guide");
 
     Knob* guide_influence_knob =
         Double_knob(f, &guide_influence_, "guide_influence", "Influence");
@@ -813,7 +813,7 @@ class TBlurBase : public Iop {
 
     EndGroup(f);
 
-    BeginOpenGroup(f, "tblur_advanced_group", "Advanced");
+    BeginGroup(f, "tblur_advanced_group", "Advanced");
 
     Knob* iterations_knob = Int_knob(f, &iterations_, "iterations", "Iterations");
     SetRange(f, 1.0, 16.0);
