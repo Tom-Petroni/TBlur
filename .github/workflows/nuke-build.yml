@@ -12,7 +12,7 @@ on:
       nuke_versions:
         description: "Comma-separated Nuke minor versions (example: 15.1,16.0,17.0)"
         required: false
-        default: "13.0,13.1,13.2,14.0,14.1,15.0,15.1,15.2,16.0,17.0"
+        default: "16.0,17.0"
       cuda_backend:
         description: "Build CUDA backend binaries"
         required: false
@@ -75,7 +75,7 @@ jobs:
           import json
           import os
 
-          default_versions = ["13.0", "13.1", "13.2", "14.0", "14.1", "15.0", "15.1", "15.2", "16.0", "17.0"]
+          default_versions = ["16.0", "17.0"]
 
           def parse_versions(raw: str):
               if not raw:
@@ -255,6 +255,17 @@ jobs:
           done
           find package -type d -name "__pycache__" -prune -exec rm -rf {} +
 
+          # Normalize release layout to the canonical install shape:
+          #   init.py + tblur_plugin/
+          if [[ -f "package/tblur_plugins/init.py" ]]; then
+            cp -f "package/tblur_plugins/init.py" "package/init.py"
+          fi
+          if [[ -d "package/tblur_plugins/tblur_plugin" ]]; then
+            mkdir -p "package/tblur_plugin"
+            rsync -a "package/tblur_plugins/tblur_plugin/" "package/tblur_plugin/"
+          fi
+          rm -rf "package/tblur_plugins"
+
       - name: Create zip
         id: zip
         working-directory: .
@@ -306,7 +317,6 @@ jobs:
       - name: Rebuild publish binaries from artifacts
         working-directory: .
         run: |
-          rm -rf publish/tblur_plugin/bin
           mkdir -p publish/tblur_plugin/bin
 
           for artifact in dist/*; do

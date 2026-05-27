@@ -43,23 +43,25 @@ Pour Nuke 17.0, remplacer `16.0` par `17.0`.
 
 Le repo contient un workflow GitHub Actions (`.github/workflows/nuke-build.yml`) qui:
 
-- build les versions Nuke 13.0 -> 17.0
+- build les versions Nuke 16.0 -> 17.0
 - build Windows + Linux (pas de build macOS pour la variante CUDA)
 - genere un zip de release pret a copier dans `.nuke`
 
 ## Installer dans Nuke (utilisateur final)
 
 1. Cloner le repo
-2. Glisser `publish/tblur_plugin` dans `C:/Users/<user>/.nuke/`
+2. Copier le contenu de `publish/` dans `C:/Users/<user>/.nuke/`:
+   - `publish/init.py`
+   - `publish/tblur_plugin/`
 3. Redemarrer Nuke
 
 Les binaires (`.dll`, `.so`) sont versionnes dans `publish/tblur_plugin/bin/...`.
 
-Si ton setup Nuke ne charge pas automatiquement le dossier, ajoute en fallback dans `.nuke/init.py`:
+Si tu as deja un `.nuke/init.py`, fusionne simplement la ligne suivante dedans:
 
 ```python
 import nuke
-nuke.pluginAddPath(r"C:/Users/<user>/.nuke/tblur_plugin")
+nuke.pluginAddPath("./tblur_plugin")
 ```
 
 ## Verification rapide

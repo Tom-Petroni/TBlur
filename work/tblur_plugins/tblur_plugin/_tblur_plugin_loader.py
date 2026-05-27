@@ -50,10 +50,13 @@ def _get_arch() -> str:
     architecture = (platform.machine() or platform.processor() or "").lower()
     is_macos = platform.system().lower() == "darwin"
 
-    if not is_macos:
+    if architecture in ("x86_64", "amd64", "x64", "x86-64", "em64t"):
         return "x86_64"
 
-    if architecture in ("x86_64", "amd64", "i386"):
+    if not is_macos:
+        raise UnsupportedSystemError(f"Architecture '{architecture}' is not supported.")
+
+    if architecture in ("x86_64", "amd64", "x64", "x86-64", "em64t", "i386"):
         return "x86_64"
 
     if "arm" in architecture or "aarch" in architecture:
@@ -77,13 +80,32 @@ def _library_filename() -> str:
     return f"lib{NODE_CLASS_NAME}.dylib"
 
 
-def _build_plugin_path() -> str:
+def _candidate_binary_filenames(os_name: str) -> list[str]:
+    override = os.environ.get("TBLUR_BINARY_FILENAME", "").strip()
+    if override:
+        return [override]
+
+    if os_name == "windows":
+        # Allows hot-swapping when canonical DLL is file-locked by a running Nuke.
+        return [f"{NODE_CLASS_NAME}_hotfix.dll", f"{NODE_CLASS_NAME}.dll"]
+
+    return [_library_filename()]
+
+
+def _build_plugin_path(
+    version_folder: str = "",
+    os_name: str = "",
+    arch_name: str = "",
+) -> str:
+    version_folder = version_folder or _get_nuke_version()
+    os_name = os_name or _get_operating_system_name()
+    arch_name = arch_name or _get_arch()
     return os.path.join(
         INSTALLATION_PATH,
         "bin",
-        _get_nuke_version(),
-        _get_operating_system_name(),
-        _get_arch(),
+        version_folder,
+        os_name,
+        arch_name,
     ).replace(os.sep, "/")
 
 
@@ -91,16 +113,9 @@ def _build_binary_path(plugin_path: str) -> str:
     return os.path.join(plugin_path, _library_filename()).replace(os.sep, "/")
 
 
-def _resolve_binary_path(plugin_path: str) -> str:
-    os_name = _get_operating_system_name()
-    candidates = []
-    if os_name == "windows":
-        # Allows hot-swapping when the canonical dll is file-locked by a running Nuke.
-        candidates.extend([f"{NODE_CLASS_NAME}_hotfix.dll", f"{NODE_CLASS_NAME}.dll"])
-    else:
-        candidates.append(_library_filename())
-
-    for filename in candidates:
+def _resolve_binary_path(plugin_path: str, os_name: str = "") -> str:
+    os_name = os_name or _get_operating_system_name()
+    for filename in _candidate_binary_filenames(os_name):
         binary_path = os.path.join(plugin_path, filename).replace(os.sep, "/")
         if os.path.isfile(binary_path):
             return binary_path
@@ -111,6 +126,80 @@ def _resolve_binary_path(plugin_path: str) -> str:
 
 def _normalize_path(path: str) -> str:
     return os.path.normcase(os.path.normpath(path)).replace("\\", "/")
+
+
+def _is_minor_version_folder(name: str) -> bool:
+    parts = name.split(".")
+    return len(parts) == 2 and all(part.isdigit() for part in parts)
+
+
+def _binary_exists_for_version(version_folder: str, os_name: str, arch_name: str) -> bool:
+    plugin_path = _build_plugin_path(version_folder, os_name, arch_name)
+    if not os.path.isdir(plugin_path):
+        return False
+    return os.path.isfile(_resolve_binary_path(plugin_path, os_name))
+
+
+def _resolve_version_folder() -> str:
+    requested = _get_nuke_version()
+    os_name = _get_operating_system_name()
+    arch_name = _get_arch()
+    plugin_bin_root = os.path.join(INSTALLATION_PATH, "bin")
+
+    if _binary_exists_for_version(requested, os_name, arch_name):
+        return requested
+
+    if not os.path.isdir(plugin_bin_root):
+        return requested
+
+    try:
+        available = [
+            entry
+            for entry in os.listdir(plugin_bin_root)
+            if _is_minor_version_folder(entry)
+            and os.path.isdir(os.path.join(plugin_bin_root, entry))
+        ]
+    except OSError:
+        return requested
+
+    try:
+        requested_major, requested_minor = (
+            int(part) for part in requested.split(".", 1)
+        )
+    except ValueError:
+        return requested
+
+    same_major = []
+    for entry in available:
+        major, minor = (int(part) for part in entry.split(".", 1))
+        if major == requested_major:
+            same_major.append((minor, entry))
+
+    if not same_major:
+        return requested
+
+    lower_or_equal = sorted(
+        (entry for minor, entry in same_major if minor <= requested_minor),
+        key=lambda version: int(version.split(".", 1)[1]),
+        reverse=True,
+    )
+    higher = sorted(
+        (entry for minor, entry in same_major if minor > requested_minor),
+        key=lambda version: int(version.split(".", 1)[1]),
+    )
+
+    for candidate in (lower_or_equal + higher):
+        if _binary_exists_for_version(candidate, os_name, arch_name):
+            logger.warning(
+                "TBlur binary for '%s' on %s/%s not found, using '%s' fallback.",
+                requested,
+                os_name,
+                arch_name,
+                candidate,
+            )
+            return candidate
+
+    return requested
 
 
 def _is_plugin_path_registered(path: str) -> bool:
@@ -129,7 +218,7 @@ def _ensure_plugin_path_registered(path: str) -> None:
 
 
 def _is_node_class_available() -> bool:
-  return hasattr(nuke, "nodes") and hasattr(nuke.nodes, NODE_CLASS_NAME)
+    return hasattr(nuke, "nodes") and hasattr(nuke.nodes, NODE_CLASS_NAME)
 
 
 def _append_loader_log(message: str) -> None:
@@ -164,7 +253,11 @@ def _load_binary(binary_path: str) -> None:
 
 
 def ensure_node_class_loaded() -> str:
-    plugin_path = _build_plugin_path()
+    requested_version = _get_nuke_version()
+    resolved_version = _resolve_version_folder()
+    os_name = _get_operating_system_name()
+    arch_name = _get_arch()
+    plugin_path = _build_plugin_path(resolved_version, os_name, arch_name)
     if not os.path.isdir(plugin_path):
         raise PluginNotFoundError(
             (
@@ -180,7 +273,11 @@ def ensure_node_class_loaded() -> str:
         )
 
     _append_loader_log(
-        f"Resolved plugin path='{plugin_path}', binary='{binary_path}', nuke='{nuke.NUKE_VERSION_STRING}'",
+        (
+            f"Resolved plugin path='{plugin_path}', binary='{binary_path}', "
+            f"nuke='{nuke.NUKE_VERSION_STRING}', requested='{requested_version}', "
+            f"resolved='{resolved_version}', os='{os_name}', arch='{arch_name}'"
+        ),
     )
     _ensure_plugin_path_registered(plugin_path)
     _load_binary(binary_path)
