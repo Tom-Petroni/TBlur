@@ -80,6 +80,14 @@ nuke.pluginAddPath("./tblur_plugin")
 - `work/docs/TBLUR_DOCUMENTATION_FR.md`
 - `work/ARCHITECTURE.md`
 
+## Branching et releases
+
+Le modele de branches et de release est documente dans `CONTRIBUTING.md`.
+
+- branches standard: `main`, `dev`, `release/*`, `hotfix/*`
+- feature branches: `feat/*`, `fix/*`, `chore/*`
+- tag auto depuis `VERSION` via `.github/workflows/version-tag.yml`
+
 ## Licence
 
 Usage commercial soumis a la licence du repo (`LICENSE` + `EULA.md`).
